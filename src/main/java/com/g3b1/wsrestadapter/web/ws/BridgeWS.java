@@ -8,10 +8,12 @@ import com.g3b1.wsrestadapter.web.rest.HandlerMethodWithBean;
 import com.g3b1.wsrestadapter.web.rest.RestListeners;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.Headers;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.annotation.SendToUser;
+import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.method.HandlerMethod;
 
@@ -19,6 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +31,9 @@ import java.util.Map;
 @Controller
 public class BridgeWS {
 
+    private final Map<String, Object> requestIdResponseMap = new HashMap<>();
+
+
     private final RestListeners restListeners;
 
     @Autowired
@@ -35,8 +41,27 @@ public class BridgeWS {
         this.restListeners = restListeners;
     }
 
+    @SubscribeMapping({"bridge/request/{requestId}/response"})
+    public Object pullResponse(@DestinationVariable("requestId") String requestId){
+        int  count = 0;
+        while (!requestIdResponseMap.containsKey(requestId)){
+            count = count + 1;
+            try {
+                //noinspection BusyWait
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            if (count > 10)
+                break;
+        }
+        if (count > 10)
+            return "timeout error";
+        return requestIdResponseMap.get(requestId);
+    }
+
     @MessageMapping("bridge/**")
-    @SendToUser(destinations="/queue/bridgemsg", broadcast=false)
+//    @SendToUser(destinations="/queue/bridgemsg", broadcast=false)
     public Object bridge(@SuppressWarnings("rawtypes") @Headers Map headers, @Payload BridgeDTO data) {
         String destination = headers.get("simpDestination").toString().replace("/socket/bridge", "/api/v1");
         HandlerMethodWithBean handlerMethodForDestination = restListeners.getHandlerMethodForDestination(destination);
@@ -55,6 +80,7 @@ public class BridgeWS {
             if (responseDTO != null) {
                 responseDTO.setRequestId(data.requestId);
             }
+            requestIdResponseMap.put(data.requestId, responseDTO);
             return responseDTO;
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);

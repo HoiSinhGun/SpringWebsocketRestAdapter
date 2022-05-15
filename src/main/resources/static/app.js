@@ -62,14 +62,39 @@ function send() {
     console.log(data);
     console.log(jsonString);
     stompClient.send(endpoint, {}, jsonString);
+
+
+    async_call(data).done(function(){
+        // function1 is done, we can now call function2
+        console.log('async_call is done!');
+        console.log("finished send")
+    });
 }
 
+function async_call(data){
+     var dfrd1 = $.Deferred();
+     setTimeout(function(){
+         // doing async stuff
+           // doing async stuff
+         stompClient.subscribe("/socket/bridge/request/" + data.requestId + "/response", function (singleResponse) {
+                             console.log('Subscribing for: ' + data.requestId + ': ' + singleResponse)
+                             showSingleResponse(singleResponse, dfrd1);
+                 });
+         console.log('showSingleResponse is done!');
+     }, 2000);
+     promise = dfrd1.promise();
+     console.log('Promise: ' + promise);
+     return promise;
+ }
 
-function showSingleResponse(message) {
+
+
+function showSingleResponse(message, dfrd1) {
     var msg_body = JSON.parse(message.body);
-    console.log(msg_body);
+    console.log('msg_body: ' + msg_body);
     msg_obj = msg_body.payload;
     $("#msgs").append("<tr><td style='width:50px'>" + msg_body.requestId + "</td><td style='width:50px'>" + msg_obj.userId + "</td><td>" + msg_obj.data + "</td></tr>");
+    dfrd1.resolve();
 }
 
 $(function () {

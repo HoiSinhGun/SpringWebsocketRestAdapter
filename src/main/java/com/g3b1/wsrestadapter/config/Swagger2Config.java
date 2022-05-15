@@ -41,7 +41,7 @@ public class Swagger2Config {
         //noinspection rawtypes
         Map<String, Schema> schemas = components.getSchemas();
         schemas = schemas == null ? new HashMap<>() : schemas;
-        schemas.putAll(customSchemaProvider.provide(new HashSet<>(Arrays.asList(MsgDTO.class, MsgInsDTO.class, SingleResponseDTO.class))));
+        schemas.putAll(customSchemaProvider.provide(new HashSet<>(Arrays.asList(MsgDTO.class, MsgInsDTO.class))));
         components.schemas(schemas);
         openAPI.components(components);
         openAPI.info(new Info().title(serverProperties.appId).version("snapshot"));
